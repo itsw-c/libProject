@@ -1,3 +1,5 @@
+백엔드 실행할 때 코드 수정할 때마다 터미널 닫고 node index.js 다시 실행해 줘야해요!
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
