@@ -49,6 +49,46 @@ app.post("/register", (req, res) => {
   });
 });
 
+// 로그인 라우트
+app.post("/login", (req, res) => {
+  const { userid, userpw } = req.body;
+
+  // 입력값 검증
+  if (!userid || !userpw) {
+    console.error("Validation error: Missing fields");
+    return res
+      .status(400)
+      .json({ message: "아이디와 비밀번호를 모두 입력해주세요." });
+  }
+
+  // 데이터베이스에서 사용자 확인
+  const query = "SELECT * FROM users WHERE userid = ? AND userpw = ?";
+  db.query(query, [userid, userpw], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "데이터베이스 오류가 발생했습니다." });
+    }
+
+    if (results.length > 0) {
+      // 로그인 성공
+      return res.status(200).json({
+        message: "로그인이 성공적으로 완료되었습니다.",
+        user: {
+          userid: results[0].userid,
+          name: results[0].name,
+        },
+      });
+    } else {
+      // 로그인 실패
+      return res
+        .status(401)
+        .json({ message: "아이디 또는 비밀번호가 잘못되었습니다." });
+    }
+  });
+});
+
 // 서버 시작
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
