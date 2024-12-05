@@ -102,6 +102,30 @@ app.post("/login", (req, res) => {
   });
 });
 
+app.post("/check-duplicate", (req, res) => {
+  const { userid } = req.body;
+
+  if (!userid) {
+    return res.status(400).json({ message: "아이디를 입력해주세요." });
+  }
+
+  const query = "SELECT userid FROM users WHERE userid = ?";
+  db.query(query, [userid], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "데이터베이스 오류가 발생했습니다." });
+    }
+
+    if (results.length > 0) {
+      return res.json({ isDuplicate: true });
+    } else {
+      return res.json({ isDuplicate: false });
+    }
+  });
+});
+
 // 서버 시작
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
