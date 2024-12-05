@@ -126,6 +126,36 @@ app.post("/check-duplicate", (req, res) => {
   });
 });
 
+app.post("/delete-account", (req, res) => {
+  const { name, addr } = req.body; // addr로 전화번호를 받음
+
+  if (!name || !addr) {
+    console.error("Validation error: Missing fields");
+    return res
+      .status(400)
+      .json({ message: "이름과 전화번호를 모두 입력해주세요." });
+  }
+
+  // 사용자 계정 삭제 쿼리
+  const deleteQuery = "DELETE FROM users WHERE name = ? AND addr = ?"; // addr로 매칭
+  db.query(deleteQuery, [name, addr], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "데이터베이스 오류가 발생했습니다." });
+    }
+
+    if (results.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "해당 정보로 계정을 찾을 수 없습니다." });
+    }
+
+    res.status(200).json({ message: "계정이 성공적으로 삭제되었습니다." });
+  });
+});
+
 // 서버 시작
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
