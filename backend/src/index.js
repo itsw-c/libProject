@@ -27,43 +27,16 @@ db.connect((err) => {
   console.log("Connected to database.");
 });
 
-// 회원 등록 라우트
 app.post("/register", (req, res) => {
-  const { userid, userpw, name } = req.body;
+  const { userid, userpw, name, birth, addr } = req.body;
 
-  if (!userid || !userpw || !name) {
+  if (!userid || !userpw || !name || !birth || !addr) {
     console.error("Validation error: Missing fields");
     return res.status(400).json({ message: "모든 필드를 입력해주세요." });
   }
 
-  const query = "INSERT INTO users (userid, userpw, name) VALUES (?, ?, ?)";
-  db.query(query, [userid, userpw, name], (err, result) => {
-    if (err) {
-      console.error("Database error:", err.message); // 오류 메시지 출력
-      return res
-        .status(500)
-        .json({ message: "데이터베이스 오류가 발생했습니다." });
-    }
-
-    res.status(201).json({ message: "회원가입이 성공적으로 완료되었습니다." });
-  });
-});
-
-// 로그인 라우트
-app.post("/login", (req, res) => {
-  const { userid, userpw } = req.body;
-
-  // 입력값 검증
-  if (!userid || !userpw) {
-    console.error("Validation error: Missing fields");
-    return res
-      .status(400)
-      .json({ message: "아이디와 비밀번호를 모두 입력해주세요." });
-  }
-
-  // 데이터베이스에서 사용자 확인
-  const query = "SELECT * FROM users WHERE userid = ? AND userpw = ?";
-  db.query(query, [userid, userpw], (err, results) => {
+  const checkQuery = "SELECT userid FROM users WHERE userid = ?";
+  db.query(checkQuery, [userid], (err, results) => {
     if (err) {
       console.error("Database error:", err.message);
       return res
@@ -72,20 +45,60 @@ app.post("/login", (req, res) => {
     }
 
     if (results.length > 0) {
-      // 로그인 성공
-      return res.status(200).json({
-        message: "로그인이 성공적으로 완료되었습니다.",
-        user: {
-          userid: results[0].userid,
-          name: results[0].name,
-        },
-      });
-    } else {
-      // 로그인 실패
-      return res
-        .status(401)
-        .json({ message: "아이디 또는 비밀번호가 잘못되었습니다." });
+      return res.status(400).json({ message: "이미 존재하는 아이디입니다." });
     }
+
+    const query =
+      "INSERT INTO users (userid, userpw, name, birth, addr) VALUES (?, ?, ?, ?, ?)";
+    db.query(query, [userid, userpw, name, birth, addr], (err, result) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return res
+          .status(500)
+          .json({ message: "데이터베이스 오류가 발생했습니다." });
+      }
+
+      res
+        .status(201)
+        .json({ message: "회원가입이 성공적으로 완료되었습니다." });
+    });
+  });
+});
+
+app.post("/login", (req, res) => {
+  const { userid, userpw } = req.body;
+
+  if (!userid || !userpw) {
+    console.error("Validation error: Missing fields");
+    return res
+      .status(400)
+      .json({ message: "아이디와 비밀번호를 모두 입력해주세요." });
+  }
+
+  const checkUserQuery = "SELECT * FROM users WHERE userid = ?";
+  db.query(checkUserQuery, [userid], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "데이터베이스 오류가 발생했습니다." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "존재하지 않는 아이디입니다." });
+    }
+
+    if (results[0].userpw !== userpw) {
+      return res.status(401).json({ message: "비밀번호가 잘못되었습니다." });
+    }
+
+    res.status(200).json({
+      message: "로그인이 성공적으로 완료되었습니다.",
+      user: {
+        userid: results[0].userid,
+        name: results[0].name,
+      },
+    });
   });
 });
 
