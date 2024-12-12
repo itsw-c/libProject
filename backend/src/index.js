@@ -307,6 +307,157 @@ app.put("/board/:id", (req, res) => {
     res.status(200).json({ message: "게시글이 성공적으로 수정되었습니다." });
   });
 });
+// 관리자 권한 체크 미들웨어
+const checkAdmin = (req, res, next) => {
+  if (!req.session?.user?.isAdmin) {
+    return res.status(403).json({ message: "관리자만 접근할 수 있습니다." });
+  }
+  next();
+};
+
+// 공지사항 작성 API (관리자만)
+app.post("/notice", checkAdmin, (req, res) => {
+  const { title, content, writer } = req.body;
+
+  if (!title || !content || !writer) {
+    return res.status(400).json({ message: "모든 필드를 입력해주세요." });
+  }
+
+  const insertQuery =
+    "INSERT INTO notice (title, content, writer) VALUES (?, ?, ?)";
+  db.query(insertQuery, [title, content, writer], (err, result) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "공지사항 추가 중 오류가 발생했습니다." });
+    }
+
+    res.status(201).json({
+      message: "공지사항이 성공적으로 작성되었습니다.",
+      postId: result.insertId,
+    });
+  });
+});
+
+// 공지사항 목록 조회 API (모든 사용자)
+app.get("/notice", (req, res) => {
+  const selectQuery = `
+    SELECT 
+      id, 
+      title, 
+      writer, 
+      created_at, 
+      views 
+    FROM notice
+    ORDER BY id DESC
+  `;
+
+  db.query(selectQuery, (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "공지사항 조회 중 오류가 발생했습니다." });
+    }
+
+    res.status(200).json(results);
+  });
+});
+
+// 공지사항 상세 조회 API (모든 사용자)
+app.get("/notice/:id", (req, res) => {
+  const postId = req.params.id;
+
+  const updateViewsQuery = "UPDATE notice SET views = views + 1 WHERE id = ?";
+  db.query(updateViewsQuery, [postId], (err) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "조회수 업데이트 중 오류가 발생했습니다." });
+    }
+
+    const selectQuery = `
+      SELECT 
+        id, 
+        title, 
+        content, 
+        writer, 
+        created_at, 
+        views 
+      FROM notice
+      WHERE id = ?
+    `;
+    db.query(selectQuery, [postId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return res
+          .status(500)
+          .json({ message: "공지사항 조회 중 오류가 발생했습니다." });
+      }
+
+      if (results.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "공지사항을 찾을 수 없습니다." });
+      }
+
+      res.status(200).json(results[0]);
+    });
+  });
+});
+
+// 공지사항 삭제 API (관리자만)
+app.delete("/notice/:id", checkAdmin, (req, res) => {
+  const postId = req.params.id;
+
+  const deleteQuery = "DELETE FROM notice WHERE id = ?";
+  db.query(deleteQuery, [postId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "공지사항 삭제 중 오류가 발생했습니다." });
+    }
+
+    if (results.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "삭제할 공지사항을 찾을 수 없습니다." });
+    }
+
+    res.status(200).json({ message: "공지사항이 성공적으로 삭제되었습니다." });
+  });
+});
+
+// 공지사항 수정 API (관리자만)
+app.put("/notice/:id", checkAdmin, (req, res) => {
+  const postId = req.params.id;
+  const { title, content } = req.body;
+
+  if (!title || !content) {
+    return res.status(400).json({ message: "모든 필드를 입력해주세요." });
+  }
+
+  const updateQuery = "UPDATE notice SET title = ?, content = ? WHERE id = ?";
+  db.query(updateQuery, [title, content, postId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "공지사항 수정 중 오류가 발생했습니다." });
+    }
+
+    if (results.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "수정할 공지사항을 찾을 수 없습니다." });
+    }
+
+    res.status(200).json({ message: "공지사항이 성공적으로 수정되었습니다." });
+  });
+});
 
 // 서버 시작
 app.listen(port, () => {
