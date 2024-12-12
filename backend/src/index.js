@@ -159,6 +159,7 @@ app.post("/delete-account", (req, res) => {
     res.status(200).json({ message: "계정이 성공적으로 삭제되었습니다." });
   });
 });
+
 // 게시글 생성 API
 app.post("/board", (req, res) => {
   const { title, content, writer } = req.body;
