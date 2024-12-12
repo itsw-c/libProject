@@ -1,6 +1,7 @@
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
+const jwt = require("jsonwebtoken"); //JWT 이용 하도록 하는 import문 -> 사용자 정보를 가져올 수 있음
 
 const app = express();
 const port = 8080;
@@ -104,6 +105,22 @@ app.post("/login", (req, res) => {
   });
 });
 
+//사용자 정보 api
+app.get("/me", (req, res) => {
+  const token = req.headers["authorization"];
+  if (token) {
+    jwt.verify(token, "your_jwt_secret", (err, decoded) => {
+      if (err) {
+        res.status(401).send("Invalid token");
+      } else {
+        res.json({ id: decoded.id });
+      }
+    });
+  } else {
+    res.status(401).send("No token provided");
+  }
+});
+
 //중복확인 api
 app.post("/check-duplicate", (req, res) => {
   const { userid } = req.body;
@@ -159,6 +176,7 @@ app.post("/delete-account", (req, res) => {
     res.status(200).json({ message: "계정이 성공적으로 삭제되었습니다." });
   });
 });
+
 // 게시글 생성 API
 app.post("/board", (req, res) => {
   const { title, content, writer } = req.body;
