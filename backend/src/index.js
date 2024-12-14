@@ -326,10 +326,20 @@ app.put("/board/:id", (req, res) => {
 });
 // 관리자 권한 체크 미들웨어
 const checkAdmin = (req, res, next) => {
-  if (!req.session?.user?.isAdmin) {
-    return res.status(403).json({ message: "관리자만 접근할 수 있습니다." });
+  try {
+    const { userid } = req.body; // 요청 본문에서 userid 확인
+
+    console.log("현재 사용자:", userid); // 디버깅용
+
+    if (!userid || userid !== "admin") {
+      return res.status(403).json({ message: "관리자만 접근할 수 있습니다." });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Admin check error:", error);
+    res.status(500).json({ message: "서버 오류가 발생했습니다." });
   }
-  next();
 };
 
 // 공지사항 작성 API (관리자만)
