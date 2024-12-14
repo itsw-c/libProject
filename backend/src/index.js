@@ -435,29 +435,6 @@ app.get("/notice/:id", (req, res) => {
   });
 });
 
-// 공지사항 삭제 API (관리자만)
-app.delete("/notice/:id", checkAdmin, (req, res) => {
-  const postId = req.params.id;
-
-  const deleteQuery = "DELETE FROM notice WHERE id = ?";
-  db.query(deleteQuery, [postId], (err, results) => {
-    if (err) {
-      console.error("Database error:", err.message);
-      return res
-        .status(500)
-        .json({ message: "공지사항 삭제 중 오류가 발생했습니다." });
-    }
-
-    if (results.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ message: "삭제할 공지사항을 찾을 수 없습니다." });
-    }
-
-    res.status(200).json({ message: "공지사항이 성공적으로 삭제되었습니다." });
-  });
-});
-
 // 공지사항 수정 API (관리자만)
 app.put("/notice/:id", checkAdmin, (req, res) => {
   const postId = req.params.id;
@@ -483,6 +460,35 @@ app.put("/notice/:id", checkAdmin, (req, res) => {
     }
 
     res.status(200).json({ message: "공지사항이 성공적으로 수정되었습니다." });
+  });
+});
+
+// 공지사항 삭제 API
+app.delete("/notice/:id", (req, res) => {
+  const postId = req.params.id;
+  const { userid } = req.body; // 클라이언트에서 보낸 userid
+
+  // 관리자 권한 체크
+  if (userid !== "admin") {
+    return res.status(403).json({ message: "관리자만 접근할 수 있습니다." });
+  }
+
+  const deleteQuery = "DELETE FROM notice WHERE id = ?";
+  db.query(deleteQuery, [postId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res.status(500).json({
+        message: "공지사항 삭제 중 오류가 발생했습니다.",
+      });
+    }
+
+    if (results.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "삭제할 공지사항을 찾을 수 없습니다." });
+    }
+
+    res.status(200).json({ message: "공지사항이 성공적으로 삭제되었습니다." });
   });
 });
 
