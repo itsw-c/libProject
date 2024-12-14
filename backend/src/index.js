@@ -1,7 +1,6 @@
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
-const jwt = require("jsonwebtoken"); //JWT 이용 하도록 하는 import문 -> 사용자 정보를 가져올 수 있음
 
 const app = express();
 const port = 8080;
@@ -67,7 +66,7 @@ app.post("/register", (req, res) => {
   });
 });
 
-//로그인 api
+// 로그인 API
 app.post("/login", (req, res) => {
   const { userid, userpw } = req.body;
 
@@ -103,22 +102,6 @@ app.post("/login", (req, res) => {
       },
     });
   });
-});
-
-//사용자 정보 api
-app.get("/me", (req, res) => {
-  const token = req.headers["authorization"];
-  if (token) {
-    jwt.verify(token, "your_jwt_secret", (err, decoded) => {
-      if (err) {
-        res.status(401).send("Invalid token");
-      } else {
-        res.json({ id: decoded.id });
-      }
-    });
-  } else {
-    res.status(401).send("No token provided");
-  }
 });
 
 //중복확인 api
