@@ -1,13 +1,37 @@
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
+const session = require("express-session");
 
 const app = express();
 const port = 8080;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000", // 프론트엔드 주소
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json()); // JSON 요청 바디를 파싱
+
+// 세션 미들웨어 설정
+app.use(
+  session({
+    secret: "your-secret-key", // 세션 암호화를 위한 키
+    resave: true,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: false, // HTTPS를 사용하지 않는 경우 false
+      maxAge: 24 * 60 * 60 * 1000, // 24시간
+      sameSite: "lax",
+    },
+    name: "sessionId",
+  })
+);
 
 // MySQL 연결 설정
 const db = mysql.createConnection({
@@ -69,13 +93,7 @@ app.post("/register", (req, res) => {
 // 로그인 API
 app.post("/login", (req, res) => {
   const { userid, userpw } = req.body;
-
-  if (!userid || !userpw) {
-    console.error("Validation error: Missing fields");
-    return res
-      .status(400)
-      .json({ message: "아이디와 비밀번호를 모두 입력해주세요." });
-  }
+  console.log("로그인 시도:", userid);
 
   const checkUserQuery = "SELECT * FROM users WHERE userid = ?";
   db.query(checkUserQuery, [userid], (err, results) => {
@@ -94,12 +112,30 @@ app.post("/login", (req, res) => {
       return res.status(401).json({ message: "비밀번호가 잘못되었습니다." });
     }
 
-    res.status(200).json({
-      message: "로그인이 성공적으로 완료되었습니다.",
-      user: {
-        userid: results[0].userid,
-        name: results[0].name,
-      },
+    // 세션에 사용자 정보 저장
+    req.session.user = {
+      userid: results[0].userid,
+      name: results[0].name,
+    };
+
+    console.log("세션 저장됨:", req.session);
+
+    // 세션 저장 완료 후 응답
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+        return res
+          .status(500)
+          .json({ message: "세션 저장 중 오류가 발생했습니다." });
+      }
+
+      res.status(200).json({
+        message: "로그인이 성공적으로 완료되었습니다.",
+        user: {
+          userid: results[0].userid,
+          name: results[0].name,
+        },
+      });
     });
   });
 });
@@ -472,6 +508,99 @@ app.delete("/notice/:id", (req, res) => {
     }
 
     res.status(200).json({ message: "공지사항이 성공적으로 삭제되었습니다." });
+  });
+});
+
+// 회원정보 수정 API
+app.put("/update-user", (req, res) => {
+  console.log("회원정보 수정 요청 데이터:", req.body);
+  const { userid, userpw, name, birth, addr } = req.body;
+
+  // 필수 필드 검사
+  if (!userid || !userpw || !name || !birth || !addr) {
+    console.log("필수 필드 누락:", { userid, userpw, name, birth, addr });
+    return res.status(400).json({
+      message: "모든 필드를 입력해주세요.",
+      receivedData: { userid, name, birth, addr },
+    });
+  }
+
+  // 세션 체크
+  if (!req.session.user) {
+    console.log("세션 없음");
+    return res.status(401).json({ message: "로그인이 필요합니다." });
+  }
+
+  // 로그인한 사용자와 수정하려는 사용자가 같은지 확인
+  if (req.session.user.userid !== userid) {
+    console.log("권한 없음:", req.session.user.userid, "!=", userid);
+    return res.status(403).json({ message: "권한이 없습니다." });
+  }
+
+  console.log("회원정보 수정 요청:", { userid, name, birth, addr });
+
+  const updateQuery = `
+    UPDATE users 
+    SET userpw = ?, name = ?, birth = ?, addr = ?
+    WHERE userid = ?
+  `;
+
+  console.log("실행될 쿼리:", updateQuery);
+  console.log("쿼리 파라미터:", [userpw, name, birth, addr, userid]);
+
+  db.query(updateQuery, [userpw, name, birth, addr, userid], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({
+        message: "회원정보 수정 중 오류가 발생했습니다.",
+        error: err.message,
+        sqlMessage: err.sqlMessage,
+      });
+    }
+
+    console.log("쿼리 실행 결과:", results);
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+
+    res.status(200).json({
+      message: "회원정보가 성공적으로 수정되었습니다.",
+      user: {
+        userid,
+        name,
+        birth,
+        addr,
+      },
+    });
+  });
+});
+
+// 사용자 정보 조회 API
+app.get("/userinfo", (req, res) => {
+  // 세션에서 사용자 정보 확인
+  if (!req.session.user) {
+    return res.status(401).json({ message: "로그인이 필요합니다." });
+  }
+
+  const userid = req.session.user.userid;
+
+  const query =
+    "SELECT userid, userpw, name, birth, addr FROM users WHERE userid = ?";
+  db.query(query, [userid], (err, results) => {
+    if (err) {
+      console.error("Database error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "사용자 정보 조회 중 오류가 발생했습니다." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+
+    // 사용자 정보 반환
+    res.status(200).json(results[0]);
   });
 });
 
